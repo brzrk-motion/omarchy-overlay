@@ -11,20 +11,16 @@ fi
 ensure_packages
 trap recover_update ERR
 
-# Stow's restow handles obsolete links without creating a delete-first gap.
-stow_package brzrk
-stow_package starship
-"$REPO_ROOT/bin/patch-loaders.py" apply
+stow_overlay
+"$REPO_ROOT/bin/patch-user-files.py" apply
 
 record_autostart_service_states
 "$REPO_ROOT/bin/configure-executor.sh"
 ensure_autostart_services
-"$REPO_ROOT/bin/configure-agents.py"
 "$REPO_ROOT/bin/validate.sh" --skip-skills
 
-# Keep this as the final mutating step. The isolated stage ensures a remote
-# failure leaves both active configuration and previously installed skills intact.
-"$REPO_ROOT/bin/sync-skills.sh"
+# Keep this as the final mutating step so a remote failure leaves the overlay intact.
+install_skills_pack
 "$REPO_ROOT/bin/validate.sh"
 trap - ERR
 log "Update complete"

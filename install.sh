@@ -3,7 +3,7 @@ set -euo pipefail
 source "$(dirname "$0")/bin/common.sh"
 
 [[ ! -d "$STATE_DIR" ]] || die "Already installed or an interrupted install exists; run ./uninstall.sh first."
-assert_not_login_fish
+warn_if_login_fish
 
 ensure_packages
 ensure_state
@@ -19,24 +19,20 @@ backup_once "$HOME/.executor" "executor-data"
 backup_once "$HOME/.config/systemd/user/$EXECUTOR_UNIT" "executor-service"
 record_autostart_service_states
 
-# Project owns this target while installed; original is already snapshotted.
-rm -f "$HOME/.config/starship.toml"
-stow_package brzrk
-stow_package starship
-"$REPO_ROOT/bin/patch-loaders.py" apply
+stow_overlay
+"$REPO_ROOT/bin/patch-user-files.py" apply
 
 "$REPO_ROOT/bin/configure-executor.sh"
 ensure_autostart_services
-"$REPO_ROOT/bin/configure-agents.py"
 
-assert_not_login_fish
+warn_if_login_fish
 "$REPO_ROOT/bin/validate.sh" --skip-skills
 
-# Skills are intentionally last so a remote quota failure cannot roll back an
-# otherwise complete workstation configuration. Updates retry pending skills.
-if ! "$REPO_ROOT/bin/sync-skills.sh"; then
+# Skills are last so a remote quota failure cannot roll back an otherwise
+# complete workstation configuration. Updates retry pending skills.
+if ! install_skills_pack; then
   trap - ERR
-  warn "Configuration install complete, but managed skills are pending."
+  warn "Configuration install complete, but the skills pack is pending."
   log "Run ./update.sh after the skills.sh request limit resets."
   exit 0
 fi

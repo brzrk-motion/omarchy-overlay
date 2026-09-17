@@ -23,23 +23,21 @@ first install and restored on uninstall.
   their prior enablement/running state is restored on uninstall or failed-install rollback.
 - Context7, Chrome DevTools MCP and shadcn MCP configured behind Executor.
 - The maintained [BRZRK skills.sh pack](https://skills.sh/p/ySjQVU7kNo5txTvo) is installed
-  into `~/.agents/skills` for Codex and Cursor. Updates reconcile the pack's current contents,
-  including newly added skills, while uninstall restores pre-existing same-named skills. The
-  installer resolves live pack membership and snapshots from skills.sh, then installs the assembled
-  pack with the skills CLI.
+  with the skills CLI for Codex and Cursor. Updates install skills newly added to the pack;
+  uninstall restores pre-existing same-named skills.
 - GNU Stow for static configuration.
 - Required packages bootstrapped by the installer: Stow, Starship, Fish/
   `omarchy-fish`, Git, Python, Ghostty, Chromium, Node.js, npm, Docker and Tailscale. Executor is
   installed user-local with npm; its configured MCP servers are fetched by `npx`.
 - Reversible install/update/uninstall lifecycle.
-- The skills.sh CLI and MCP package versions are pinned in `deps.lock`; pack contents intentionally
-  follow the current maintainer-managed release.
+- The skills.sh CLI and MCP package versions are pinned in `deps.lock`; pack contents follow the
+  current maintainer-managed release.
 
 ## Install
 
 ```bash
-git clone <your-repo-url> ~/src/brzrk-omarchy
-cd ~/src/brzrk-omarchy
+git clone <your-repo-url> ~/Projects/omarchy-overlay
+cd ~/Projects/omarchy-overlay
 ./install.sh
 ```
 
@@ -56,8 +54,9 @@ limited, the installer keeps the completed configuration and reports skills as p
 
 The original pre-install snapshot is never replaced during updates.
 
-Updates reconcile required packages and BRZRK-managed configuration first, then update the skills
-pack as the final mutating step. Other agent skills and MCP entries are preserved.
+Updates reconcile required packages and BRZRK-managed configuration first, then install the current
+skills pack as the final mutating step, including skills added to the pack since last time.
+Other agent skills and MCP entries are preserved.
 
 ## Uninstall
 
@@ -65,7 +64,7 @@ pack as the final mutating step. Other agent skills and MCP entries are preserve
 ./uninstall.sh
 ```
 
-This restores the exact user files captured before the first install.
+This restores the exact user files captured before the first install, including pack skills.
 
 To additionally remove packages that BRZRK recorded as newly installed:
 
@@ -90,4 +89,4 @@ It never owns `/usr/share/omarchy`.
 
 Monitor names, resolution, refresh rate, scaling, VRR and fixed workspace-to-monitor mappings are
 intentionally not hard-coded. The shared workspace-pair bindings discover the two active monitors
-dynamically; machine-specific display settings belong in a later `hosts/<hostname>/` layer.
+dynamically.

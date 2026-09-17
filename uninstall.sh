@@ -8,9 +8,9 @@ purge=0
 [[ "${1:-}" == "--purge-packages" ]] && purge=1
 warn "Uninstall restores first-install snapshots and discards changes to managed files."
 
-"$REPO_ROOT/bin/patch-loaders.py" remove
-"$REPO_ROOT/bin/sync-skills.sh" remove
-unstow_package starship
+"$REPO_ROOT/bin/patch-user-files.py" remove
+remove_skills_pack
+drop_legacy_stow_links
 unstow_package brzrk
 
 stop_added_executor

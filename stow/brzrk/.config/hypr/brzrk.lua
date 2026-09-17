@@ -1,3 +1,51 @@
+-- BRZRK creative workstation overlay for Omarchy Quattro.
+-- Loaded last from hyprland.lua via require_optional.module("hypr.brzrk").
+
+local creative_classes = {
+  "^[Bb]lender$",
+  "^org%.blender%.Blender$",
+  "^[Kk]rita$",
+  "^org%.kde%.krita$",
+  ".*[Rr]esolve.*",
+  "^[Pp]lasticity$",
+  "^[Ss]ubstance.*$",
+  "^Adobe Substance 3D.*$",
+  "^[Nn]atron$",
+  "^[Kk]denlive$",
+  "^org%.kde%.kdenlive$",
+}
+
+local creative_dialog_titles = {
+  ".*[Pp]references.*",
+  ".*[Ss]ettings.*",
+  ".*[Ff]ile [Bb]rowser.*",
+  ".*[Oo]pen [Ff]ile.*",
+  ".*[Ss]ave [Ff]ile.*",
+}
+
+for _, class_pattern in ipairs(creative_classes) do
+  -- Effects, not match filters: Omarchy's Resolve rule floats first, so a
+  -- float=false matcher would never see those windows.
+  o.window(class_pattern, {
+    tag = "-default-opacity",
+    tile = true,
+    maximize = true,
+  })
+
+  o.window({
+    class = class_pattern,
+    modal = true,
+  }, {
+    float = true,
+    center = true,
+    tag = "-default-opacity",
+  })
+
+  for _, title_pattern in ipairs(creative_dialog_titles) do
+    o.window({ class = class_pattern, title = title_pattern, float = true }, { center = true })
+  end
+end
+
 -- Five conceptual workspaces, paired across exactly two active monitors.
 --
 -- The rightmost primary monitor owns numeric workspaces 1-5. The secondary
@@ -91,12 +139,11 @@ local function configure_pair_rules()
 end
 
 configure_pair_rules()
-hl.on("monitor.added", function()
+local function schedule_pair_rules()
   hl.timer(configure_pair_rules, { timeout = 50, type = "oneshot" })
-end)
-hl.on("monitor.removed", function()
-  hl.timer(configure_pair_rules, { timeout = 50, type = "oneshot" })
-end)
+end
+hl.on("monitor.added", schedule_pair_rules)
+hl.on("monitor.removed", schedule_pair_rules)
 
 -- Workspace focus normally warps the cursor. With focus-follows-mouse that can
 -- steal focus between the two dispatches and put the pair out of sync.

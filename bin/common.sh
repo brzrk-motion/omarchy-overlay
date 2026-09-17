@@ -7,7 +7,6 @@ STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/brzrk-omarchy"
 ORIGINAL_DIR="$STATE_DIR/original"
 MANIFEST_DIR="$STATE_DIR/manifest"
 STOW_DIR="$REPO_ROOT/stow"
-GENERATED_DIR="$REPO_ROOT/generated"
 EXECUTOR_UNIT="sh.executor.daemon.service"
 
 log()  { printf '\033[1;36m[brzrk]\033[0m %s\n' "$*"; }
@@ -60,6 +59,139 @@ stow_package() {
 unstow_package() {
   [[ -d "$STOW_DIR/$1" ]] || return 0
   stow --dir="$STOW_DIR" --target="$HOME" --no-folding --delete "$1"
+}
+
+drop_legacy_stow_links() {
+  local path
+  for path in \
+    "$HOME/.config/brzrk-omarchy/hypr/init.lua" \
+    "$HOME/.config/brzrk-omarchy/hypr/workspaces.lua" \
+    "$HOME/.config/brzrk-omarchy/ghostty/fish.ghostty"
+  do
+    [[ -L "$path" ]] && rm -f -- "$path"
+  done
+  rmdir "$HOME/.config/brzrk-omarchy/hypr" 2>/dev/null || true
+  rmdir "$HOME/.config/brzrk-omarchy/ghostty" 2>/dev/null || true
+  rmdir "$HOME/.config/brzrk-omarchy" 2>/dev/null || true
+}
+
+stow_overlay() {
+  drop_legacy_stow_links
+  rm -f "$HOME/.config/starship.toml"
+  stow_package brzrk
+}
+
+SKILLS_TARGET="$HOME/.agents/skills"
+SKILLS_MANIFEST="$MANIFEST_DIR/skills-pack.txt"
+
+valid_skill_name() {
+  [[ "$1" =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ && "$1" != "." && "$1" != ".." ]]
+}
+
+skills_cli() {
+  DISABLE_TELEMETRY=1 npx --yes "skills@$SKILLS_CLI_VERSION" "$@"
+}
+
+list_pack_skills() {
+  python3 - "$SKILLS_PACK_URL" <<'PY'
+import re
+import sys
+from urllib.request import Request, urlopen
+
+url = sys.argv[1]
+html = urlopen(Request(url, headers={"User-Agent": "skills-cli"}), timeout=30).read().decode(
+    "utf-8", "replace"
+)
+pattern = (
+    r'\\"source\\":\\"([A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+)\\"'
+    r'.{0,120}'
+    r'\\"skillId\\":\\"([A-Za-z0-9][A-Za-z0-9._-]*)\\"'
+)
+seen = []
+for source, skill in re.findall(pattern, html):
+    if skill not in seen:
+        seen.append(skill)
+        print(f"{source}\t{skill}")
+if not seen:
+    raise SystemExit("pack membership was not present in the skills.sh response")
+PY
+}
+
+install_skills_pack() {
+  # shellcheck disable=SC1091
+  source "$REPO_ROOT/deps.lock"
+  ensure_state
+  local line source skill
+  local pack_sources=() pack_skills=() old_skills=()
+  while IFS=$'\t' read -r source skill; do
+    [[ -n "$source" && -n "$skill" ]] || continue
+    [[ "$source" =~ ^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$ ]] || die "Invalid pack source: $source"
+    valid_skill_name "$skill" || die "Invalid skill name from pack: $skill"
+    pack_sources+=("$source")
+    pack_skills+=("$skill")
+  done < <(list_pack_skills)
+  ((${#pack_skills[@]})) || die "The skills pack listed no installable skills"
+
+  [[ -f "$SKILLS_MANIFEST" ]] && mapfile -t old_skills < "$SKILLS_MANIFEST"
+
+  mkdir -p "$SKILLS_TARGET"
+  for skill in "${pack_skills[@]}"; do
+    backup_once "$SKILLS_TARGET/$skill" "skill-$skill"
+    grep -qxF "$skill" "$SKILLS_MANIFEST" 2>/dev/null || printf '%s\n' "$skill" >> "$SKILLS_MANIFEST"
+  done
+
+  log "Installing ${#pack_skills[@]} skills from $SKILLS_PACK_URL"
+  if ! skills_cli add "$SKILLS_PACK_URL" \
+    --skill '*' --agent codex --agent cursor --global --copy --yes; then
+    warn "Pack URL install failed; installing each pack source with the skills CLI."
+    local -A grouped=()
+    local i names=() source
+    for i in "${!pack_skills[@]}"; do
+      grouped["${pack_sources[$i]}"]+="${pack_skills[$i]}"$'\n'
+    done
+    for source in "${!grouped[@]}"; do
+      mapfile -t names < <(printf '%s' "${grouped[$source]}" | sed '/^$/d')
+      if ! skills_cli add "$source" \
+        --skill "${names[@]}" --agent codex --agent cursor --global --copy --yes; then
+        skills_cli add "$source" \
+          --skill '*' --agent codex --agent cursor --global --copy --yes
+      fi
+    done
+  fi
+
+  local installed=()
+  for skill in "${pack_skills[@]}"; do
+    [[ -f "$SKILLS_TARGET/$skill/SKILL.md" ]] && installed+=("$skill")
+  done
+  ((${#installed[@]})) || die "No pack skills were installed"
+
+  for skill in "${old_skills[@]}"; do
+    [[ -n "$skill" ]] || continue
+    printf '%s\n' "${installed[@]}" | grep -qxF "$skill" && continue
+    valid_skill_name "$skill" || die "Invalid managed skill name: $skill"
+    skills_cli remove --global --agent codex --agent cursor --skill "$skill" -y >/dev/null 2>&1 || true
+    restore_original "$SKILLS_TARGET/$skill" "skill-$skill"
+  done
+
+  local manifest_tmp
+  manifest_tmp="$(mktemp "$MANIFEST_DIR/skills-pack.XXXXXX")"
+  printf '%s\n' "${installed[@]}" > "$manifest_tmp"
+  mv "$manifest_tmp" "$SKILLS_MANIFEST"
+}
+
+remove_skills_pack() {
+  # shellcheck disable=SC1091
+  source "$REPO_ROOT/deps.lock"
+  [[ -f "$SKILLS_MANIFEST" ]] || return 0
+
+  local skill
+  while IFS= read -r skill; do
+    [[ -n "$skill" ]] || continue
+    valid_skill_name "$skill" || die "Invalid managed skill name: $skill"
+    skills_cli remove --global --agent codex --agent cursor --skill "$skill" -y >/dev/null 2>&1 || true
+    restore_original "$SKILLS_TARGET/$skill" "skill-$skill"
+  done < "$SKILLS_MANIFEST"
+  rm -f "$SKILLS_MANIFEST"
 }
 
 record_new_package() {
@@ -154,7 +286,7 @@ restore_autostart_service_states() {
   restore_service_state system tailscaled.service tailscaled
 }
 
-assert_not_login_fish() {
+warn_if_login_fish() {
   local login_shell
   login_shell="$(getent passwd "$USER" | cut -d: -f7)"
   if [[ "$login_shell" == *"/fish" ]]; then
@@ -189,9 +321,8 @@ rollback_first_install() {
   trap - ERR
   warn "Install failed; restoring the pre-install state."
 
-  "$REPO_ROOT/bin/patch-loaders.py" remove >/dev/null 2>&1
-  "$REPO_ROOT/bin/sync-skills.sh" remove >/dev/null 2>&1
-  unstow_package starship >/dev/null 2>&1
+  "$REPO_ROOT/bin/patch-user-files.py" remove >/dev/null 2>&1
+  remove_skills_pack >/dev/null 2>&1
   unstow_package brzrk >/dev/null 2>&1
   stop_added_executor
   restore_managed_originals
@@ -204,8 +335,7 @@ recover_update() {
   set +e
   trap - ERR
   warn "Update failed; restoring the managed overlay links and loaders."
-  stow_package brzrk >/dev/null 2>&1
-  stow_package starship >/dev/null 2>&1
-  "$REPO_ROOT/bin/patch-loaders.py" apply >/dev/null 2>&1
+  stow_overlay >/dev/null 2>&1
+  "$REPO_ROOT/bin/patch-user-files.py" apply >/dev/null 2>&1
   exit "$status"
 }
