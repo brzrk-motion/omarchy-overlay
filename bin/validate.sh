@@ -44,6 +44,7 @@ check "$([[ ! -d "$REPO_ROOT/hosts" ]] && echo 1 || echo 0)" "empty hosts layer 
 check "$([[ ! -e "$REPO_ROOT/bin/common.sh" ]] || ! grep -q GENERATED_DIR "$REPO_ROOT/bin/common.sh" && echo 1 || echo 0)" "generated-skills migration removed"
 
 if [[ -f "$hypr_lua" ]]; then
+  check "$(grep -q 'gaps_in = 2' "$hypr_lua" && grep -q 'gaps_out = 2' "$hypr_lua" && echo 1 || echo 0)" "window gaps are 2px"
   check "$(grep -q 'tile = true' "$hypr_lua" && grep -q 'maximize = true' "$hypr_lua" && echo 1 || echo 0)" "creative apps tile+maximize as effects"
   check "$(grep -q 'float = false' "$hypr_lua" && echo 0 || echo 1)" "creative rules do not match on float=false"
   check "$(grep -q 'switch_pair' "$hypr_lua" && grep -q 'hl.workspace_rule' "$hypr_lua" && echo 1 || echo 0)" "workspace-pair bindings in overlay"

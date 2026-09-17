@@ -147,7 +147,13 @@ hl.on("monitor.removed", schedule_pair_rules)
 
 -- Workspace focus normally warps the cursor. With focus-follows-mouse that can
 -- steal focus between the two dispatches and put the pair out of sync.
-hl.config({ cursor = { no_warps = true } })
+hl.config({
+  cursor = { no_warps = true },
+  general = {
+    gaps_in = 2,
+    gaps_out = 2,
+  },
+})
 
 local function switch_pair(pair, remember_previous)
   local monitors = monitors_left_to_right()
