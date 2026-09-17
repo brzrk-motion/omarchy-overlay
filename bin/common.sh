@@ -8,6 +8,7 @@ ORIGINAL_DIR="$STATE_DIR/original"
 MANIFEST_DIR="$STATE_DIR/manifest"
 STOW_DIR="$REPO_ROOT/stow"
 GENERATED_DIR="$REPO_ROOT/generated"
+EXECUTOR_UNIT="sh.executor.daemon.service"
 
 log()  { printf '\033[1;36m[brzrk]\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m[brzrk]\033[0m %s\n' "$*" >&2; }
@@ -113,7 +114,7 @@ record_service_state_once() {
 record_autostart_service_states() {
   command -v systemctl >/dev/null 2>&1 || die "systemd is required for managed autostart services."
   ensure_state
-  record_service_state_once user executor.service executor
+  record_service_state_once user "$EXECUTOR_UNIT" executor
   record_service_state_once system docker.service docker
   record_service_state_once system tailscaled.service tailscaled
 }
@@ -121,7 +122,7 @@ record_autostart_service_states() {
 ensure_autostart_services() {
   log "Enabling Executor, Docker, and Tailscale autostart"
   systemctl --user daemon-reload
-  systemctl --user enable --now executor.service
+  systemctl --user enable --now "$EXECUTOR_UNIT"
   sudo systemctl enable --now docker.service tailscaled.service
 }
 
@@ -148,7 +149,7 @@ restore_service_state() {
 
 restore_autostart_service_states() {
   systemctl --user daemon-reload >/dev/null 2>&1 || true
-  restore_service_state user executor.service executor
+  restore_service_state user "$EXECUTOR_UNIT" executor
   restore_service_state system docker.service docker
   restore_service_state system tailscaled.service tailscaled
 }
@@ -169,7 +170,7 @@ restore_managed_originals() {
   restore_original "$HOME/.codex/config.toml" "codex-config.toml"
   restore_original "$HOME/.cursor/mcp.json" "cursor-mcp.json"
   restore_original "$HOME/.executor" "executor-data"
-  restore_original "$HOME/.config/systemd/user/executor.service" "executor-service"
+  restore_original "$HOME/.config/systemd/user/$EXECUTOR_UNIT" "executor-service"
 }
 
 stop_added_executor() {
@@ -177,7 +178,7 @@ stop_added_executor() {
   command -v executor >/dev/null 2>&1 &&
     executor daemon stop >/dev/null 2>&1 || true
   command -v systemctl >/dev/null 2>&1 &&
-    systemctl --user disable --now executor.service >/dev/null 2>&1 || true
+    systemctl --user disable --now "$EXECUTOR_UNIT" >/dev/null 2>&1 || true
   command -v systemctl >/dev/null 2>&1 &&
     systemctl --user daemon-reload >/dev/null 2>&1 || true
 }

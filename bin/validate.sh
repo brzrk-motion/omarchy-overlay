@@ -2,6 +2,13 @@
 set -euo pipefail
 source "$(dirname "$0")/common.sh"
 
+skip_skills=0
+if [[ "${1:-}" == --skip-skills ]]; then
+  skip_skills=1
+elif [[ -n "${1:-}" ]]; then
+  die "usage: validate.sh [--skip-skills]"
+fi
+
 fail=0
 for cmd in stow starship fish executor; do
   if command -v "$cmd" >/dev/null 2>&1; then
@@ -31,22 +38,26 @@ else
   fail=1
 fi
 [[ -L "$HOME/.config/starship.toml" ]] || fail=1
-skills_manifest="$MANIFEST_DIR/skills-pack.txt"
-if [[ -s "$skills_manifest" ]]; then
-  skill_count=0
-  while IFS= read -r skill; do
-    [[ -n "$skill" ]] || continue
-    if [[ -f "$HOME/.agents/skills/$skill/SKILL.md" ]]; then
-      ((skill_count += 1))
-    else
-      echo "  ✗ Managed skill missing: $skill"
-      fail=1
-    fi
-  done < "$skills_manifest"
-  echo "  ✓ $skill_count managed skills from skills.sh pack"
+if (( skip_skills )); then
+  echo "  ○ Managed skills validation deferred until final install step"
 else
-  echo "  ✗ Managed skills manifest missing or empty"
-  fail=1
+  skills_manifest="$MANIFEST_DIR/skills-pack.txt"
+  if [[ -s "$skills_manifest" ]]; then
+    skill_count=0
+    while IFS= read -r skill; do
+      [[ -n "$skill" ]] || continue
+      if [[ -f "$HOME/.agents/skills/$skill/SKILL.md" ]]; then
+        ((skill_count += 1))
+      else
+        echo "  ✗ Managed skill missing: $skill"
+        fail=1
+      fi
+    done < "$skills_manifest"
+    echo "  ✓ $skill_count managed skills from skills.sh pack"
+  else
+    echo "  ✗ Managed skills manifest missing or empty"
+    fail=1
+  fi
 fi
 grep -q '\[mcp_servers\.executor\]' "$HOME/.codex/config.toml" || fail=1
 
@@ -71,7 +82,7 @@ check_service() {
   fi
 }
 
-check_service user executor.service Executor
+check_service user "$EXECUTOR_UNIT" Executor
 check_service system docker.service Docker
 check_service system tailscaled.service Tailscale
 

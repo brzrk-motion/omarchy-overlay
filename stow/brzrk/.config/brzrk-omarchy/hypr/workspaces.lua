@@ -1,13 +1,20 @@
 -- Five conceptual workspaces, paired across exactly two active monitors.
 --
--- Pair 1 = workspaces 1 and 6, pair 2 = 2 and 7, and so on. The rightmost
--- monitor is primary and owns workspaces 1-5; the secondary owns 6-10.
--- Hyprland requires a unique workspace ID on each monitor, so the second half
--- is an implementation detail; the bindings below expose only pairs 1-5.
+-- The rightmost primary monitor owns numeric workspaces 1-5. The secondary
+-- monitor uses matching named workspaces, which keeps Hyprland's required
+-- unique workspace identities from appearing as extra numbers in the bar.
 
 local pair_count = 5
 local previous_pair = nil
 local pair_rules = {}
+
+local function secondary_workspace_name(pair)
+  return "brzrk-pair-" .. tostring(pair) .. "-secondary"
+end
+
+local function secondary_workspace_selector(pair)
+  return "name:" .. secondary_workspace_name(pair)
+end
 
 local function monitors_left_to_right()
   local monitors = hl.get_monitors()
@@ -24,26 +31,36 @@ local function monitors_left_to_right()
 end
 
 local function conceptual_pair(workspace)
-  if not workspace or workspace.special or workspace.id < 1 or workspace.id > pair_count * 2 then
+  if not workspace or workspace.special then
     return nil
   end
 
-  return ((workspace.id - 1) % pair_count) + 1
+  if workspace.id >= 1 and workspace.id <= pair_count then
+    return workspace.id
+  end
+
+  local named_pair = workspace.name and workspace.name:match("^brzrk%-pair%-(%d+)%-secondary$")
+  named_pair = tonumber(named_pair)
+  if named_pair and named_pair >= 1 and named_pair <= pair_count then
+    return named_pair
+  end
+
+  return nil
 end
 
 local function active_pair()
   return conceptual_pair(hl.get_active_workspace()) or 1
 end
 
-local function active_offset(monitors)
+local function active_on_secondary(monitors)
   if #monitors == 2 then
     local monitor = hl.get_active_monitor()
     if monitor and monitor.id == monitors[1].id then
-      return pair_count
+      return true
     end
   end
 
-  return 0
+  return false
 end
 
 local function configure_pair_rules()
@@ -62,11 +79,13 @@ local function configure_pair_rules()
       workspace = tostring(pair),
       monitor = monitors[2].name,
       default = pair == 1,
+      persistent = true,
     }))
     table.insert(pair_rules, hl.workspace_rule({
-      workspace = tostring(pair + pair_count),
+      workspace = secondary_workspace_selector(pair),
       monitor = monitors[1].name,
       default = pair == 1,
+      persistent = true,
     }))
   end
 end
@@ -94,8 +113,8 @@ local function switch_pair(pair, remember_previous)
   if #monitors == 2 then
     -- Change the secondary directly so it never receives keyboard focus, then
     -- explicitly focus the rightmost primary half of the pair.
-    monitors[1]:set_workspace(tostring(pair + pair_count))
-    monitors[2]:set_workspace(tostring(pair))
+    monitors[1]:set_workspace({ workspace = secondary_workspace_name(pair) })
+    monitors[2]:set_workspace({ workspace = tostring(pair) })
     hl.dispatch(hl.dsp.focus({ workspace = tostring(pair) }))
   else
     hl.dispatch(hl.dsp.focus({ workspace = tostring(pair) }))
@@ -114,18 +133,18 @@ local function move_window_to_pair(pair, follow)
   end
 
   local monitors = monitors_left_to_right()
-  local offset = active_offset(monitors)
-  local workspace = pair + offset
+  local on_secondary = active_on_secondary(monitors)
+  local workspace = on_secondary and secondary_workspace_selector(pair) or tostring(pair)
 
   if follow and #monitors == 2 then
-    local other_workspace = offset == 0 and pair + pair_count or pair
-    local other_monitor = offset == 0 and monitors[1] or monitors[2]
-    other_monitor:set_workspace(tostring(other_workspace))
+    local other_workspace = on_secondary and tostring(pair) or secondary_workspace_name(pair)
+    local other_monitor = on_secondary and monitors[2] or monitors[1]
+    other_monitor:set_workspace({ workspace = other_workspace })
   end
 
   hl.dispatch(hl.dsp.window.move({
     window = window,
-    workspace = tostring(workspace),
+    workspace = workspace,
     follow = follow,
   }))
 end
@@ -184,3 +203,10 @@ end)
 o.bind("SUPER + mouse_up", "Scroll workspace pairs backward", function()
   cycle_pair(-1)
 end)
+
+-- Reconcile either monitor from an older configuration after all persistent
+-- pair workspaces have been created. This also establishes the matching pair
+-- on login without transferring focus to the secondary monitor.
+hl.timer(function()
+  switch_pair(active_pair(), false)
+end, { timeout = 50, type = "oneshot" })

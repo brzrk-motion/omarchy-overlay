@@ -10,10 +10,11 @@ first install and restored on uninstall.
 
 - Creative-app Hyprland behavior for Blender, Krita, DaVinci Resolve, Plasticity,
   Substance, Natron and Kdenlive.
-- Five conceptual Hyprland workspaces paired across two monitors: `(1,6)` through
-  `(5,10)`. Workspace switching, cycling and window moves use the pair as one
-  workspace. The rightmost monitor is primary and receives focus after every
-  pair switch; systems with any other monitor count fall back to workspaces `1–5`.
+- Five conceptual Hyprland workspaces paired across two monitors. Numeric workspaces
+  `1–5` live on the rightmost primary monitor, with hidden named counterparts on the
+  secondary monitor so the bar still displays exactly five workspaces. Workspace
+  switching, cycling and window moves use each pair as one workspace. The primary
+  receives focus after every pair switch; other monitor counts fall back to `1–5`.
 - Official Starship Tokyo Night preset.
 - Fish as the interactive shell inside Ghostty only.
 - Bash/login shell left unchanged.
@@ -43,6 +44,9 @@ cd ~/src/brzrk-omarchy
 ```
 
 If an install is interrupted, run `./uninstall.sh` to clear its saved state before retrying.
+The skills pack is installed only after all local configuration validates. If skills.sh is rate
+limited, the installer keeps the completed configuration and reports skills as pending; run
+`./update.sh` after the limit resets to retry them.
 
 ## Update
 
@@ -52,8 +56,8 @@ If an install is interrupted, run `./uninstall.sh` to clear its saved state befo
 
 The original pre-install snapshot is never replaced during updates.
 
-Updates reconcile the required packages and current skills pack, then replace only BRZRK-managed
-files and the `executor` MCP entry. Other agent skills and MCP entries are preserved.
+Updates reconcile required packages and BRZRK-managed configuration first, then update the skills
+pack as the final mutating step. Other agent skills and MCP entries are preserved.
 
 ## Uninstall
 
