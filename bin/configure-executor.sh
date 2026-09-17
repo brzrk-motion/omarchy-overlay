@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 source "$(dirname "$0")/common.sh"
+source "$REPO_ROOT/deps.lock"
+
+[[ "${EXECUTOR_VERSION:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "Invalid EXECUTOR_VERSION in deps.lock"
+[[ "${CHROME_DEVTOOLS_MCP_VERSION:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "Invalid CHROME_DEVTOOLS_MCP_VERSION in deps.lock"
+[[ "${SHADCN_VERSION:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "Invalid SHADCN_VERSION in deps.lock"
 
 export PATH="/usr/bin:$HOME/.local/bin:$PATH"
 command -v node >/dev/null 2>&1 || die "Node.js is required for Executor."
@@ -11,7 +16,7 @@ node_major="$(node -p 'Number(process.versions.node.split(".")[0])')"
 if ! command -v executor >/dev/null 2>&1; then
   log "Installing Executor"
   npm_prefix="$HOME/.local"
-  npm install --prefix="$npm_prefix" --global executor
+  npm install --prefix="$npm_prefix" --global "executor@$EXECUTOR_VERSION"
   ensure_state
   grep -qxF executor "$MANIFEST_DIR/npm-added.txt" 2>/dev/null ||
     printf '%s\n' executor >> "$MANIFEST_DIR/npm-added.txt"
@@ -25,10 +30,12 @@ add_remote() {
   local output
   if ! output=$(executor call executor mcp addServer \
     "{\"transport\":\"remote\",\"name\":\"$name\",\"endpoint\":\"$endpoint\",\"slug\":\"$slug\"}" 2>&1); then
-    grep -qi 'already_exists\|already exists' <<<"$output" || {
-      printf '%s\n' "$output" >&2
-      return 1
-    }
+    if grep -qi 'already_exists\|already exists' <<<"$output"; then
+      warn "Executor integration '$slug' already exists; leaving it unchanged."
+      return 0
+    fi
+    printf '%s\n' "$output" >&2
+    return 1
   fi
 }
 
@@ -37,16 +44,18 @@ add_stdio() {
   local output
   if ! output=$(executor call executor mcp addServer \
     "{\"transport\":\"stdio\",\"name\":\"$name\",\"command\":\"npx\",\"args\":$args_json,\"slug\":\"$slug\"}" 2>&1); then
-    grep -qi 'already_exists\|already exists' <<<"$output" || {
-      printf '%s\n' "$output" >&2
-      return 1
-    }
+    if grep -qi 'already_exists\|already exists' <<<"$output"; then
+      warn "Executor integration '$slug' already exists; leaving it unchanged."
+      return 0
+    fi
+    printf '%s\n' "$output" >&2
+    return 1
   fi
 }
 
-log "Reconciling Executor MCP integrations"
+log "Ensuring Executor MCP integrations"
 add_remote context7 Context7 https://mcp.context7.com/mcp
-add_stdio chrome-devtools "Chrome DevTools" '["-y","chrome-devtools-mcp@latest"]'
-add_stdio shadcn shadcn '["-y","shadcn@latest","mcp"]'
+add_stdio chrome-devtools "Chrome DevTools" "[\"-y\",\"chrome-devtools-mcp@$CHROME_DEVTOOLS_MCP_VERSION\"]"
+add_stdio shadcn shadcn "[\"-y\",\"shadcn@$SHADCN_VERSION\",\"mcp\"]"
 
 executor tools integrations

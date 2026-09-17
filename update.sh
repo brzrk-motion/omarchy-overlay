@@ -12,14 +12,9 @@ ensure_packages
 
 # Fetch/build first so a network failure leaves the active overlay untouched.
 "$REPO_ROOT/bin/sync-skills.sh"
+trap recover_update ERR
 
-unstow_package starship
-unstow_package brzrk
-if [[ -d "$GENERATED_DIR/skills" ]]; then
-  stow --dir="$GENERATED_DIR" --target="$HOME" --no-folding --delete skills
-fi
-"$REPO_ROOT/bin/patch-loaders.py" remove
-
+# Stow's restow handles obsolete links without creating a delete-first gap.
 stow_package brzrk
 stow_package starship
 "$REPO_ROOT/bin/patch-loaders.py" apply
@@ -29,4 +24,5 @@ stow --dir="$GENERATED_DIR" --target="$HOME" --no-folding --restow skills
 "$REPO_ROOT/bin/configure-executor.sh"
 "$REPO_ROOT/bin/configure-agents.py"
 "$REPO_ROOT/bin/validate.sh"
+trap - ERR
 log "Update complete"

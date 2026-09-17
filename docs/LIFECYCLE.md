@@ -10,15 +10,17 @@ Executor was installed by this project.
 ## Update
 1. Pull repository changes.
 2. Rebuild generated skills; leave the active overlay in place if this fails.
-3. Unstow old managed links.
-4. Remove old managed loader blocks.
-5. Restow current files.
-6. Insert current loader blocks.
-7. Reconcile Executor/MCP state.
-8. Validate.
+3. Restow current files; Stow removes obsolete links as part of the operation.
+4. Insert current loader blocks atomically.
+5. Reconcile Executor/MCP state.
+6. Validate.
+
+If a later update step fails, the updater reasserts the managed links and loaders before exiting.
 
 The original first-install snapshot is never changed by update.
 Unrelated Codex and Cursor MCP entries are preserved; only the `executor` entry is managed.
+Existing Executor integrations are left unchanged when their slug already exists; the current
+Executor CLI has no update/remove operation for these MCP registrations.
 
 ## Uninstall
 1. Remove managed blocks.

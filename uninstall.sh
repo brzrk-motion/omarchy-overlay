@@ -6,6 +6,7 @@ source "$(dirname "$0")/bin/common.sh"
 
 purge=0
 [[ "${1:-}" == "--purge-packages" ]] && purge=1
+warn "Uninstall restores first-install snapshots and discards changes to managed files."
 
 "$REPO_ROOT/bin/patch-loaders.py" remove
 if [[ -d "$GENERATED_DIR/skills" ]]; then
@@ -14,25 +15,8 @@ fi
 unstow_package starship
 unstow_package brzrk
 
-restore_original "$HOME/.config/hypr/hyprland.lua" "hyprland.lua"
-restore_original "$HOME/.config/ghostty/config.ghostty" "ghostty-config.ghostty"
-restore_original "$HOME/.config/ghostty/config" "ghostty-config"
-restore_original "$HOME/.config/starship.toml" "starship.toml"
-restore_original "$HOME/.codex/config.toml" "codex-config.toml"
-restore_original "$HOME/.cursor/mcp.json" "cursor-mcp.json"
-restore_original "$HOME/.agents/skills/ponytail" "skill-ponytail"
-restore_original "$HOME/.agents/skills/impeccable" "skill-impeccable"
-if [[ -f "$MANIFEST_DIR/npm-added.txt" ]] && command -v executor >/dev/null 2>&1; then
-  executor daemon stop >/dev/null 2>&1 || true
-fi
-if [[ -f "$MANIFEST_DIR/npm-added.txt" ]] && command -v systemctl >/dev/null 2>&1; then
-  systemctl --user disable --now executor.service >/dev/null 2>&1 || true
-fi
-restore_original "$HOME/.executor" "executor-data"
-restore_original "$HOME/.config/systemd/user/executor.service" "executor-service"
-if command -v systemctl >/dev/null 2>&1; then
-  systemctl --user daemon-reload >/dev/null 2>&1 || true
-fi
+stop_added_executor
+restore_managed_originals
 
 if (( purge )); then
   if [[ -f "$MANIFEST_DIR/pacman-added.txt" ]]; then

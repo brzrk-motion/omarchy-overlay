@@ -21,6 +21,7 @@ first install and restored on uninstall.
   `omarchy-fish`, Git, Python, Ghostty, Chromium, Node.js and npm. Executor is
   installed user-local with npm; its configured MCP servers are fetched by `npx`.
 - Reversible install/update/uninstall lifecycle.
+- External skill revisions and MCP package versions are pinned in `skills.lock` and `deps.lock`.
 
 ## Install
 
@@ -29,6 +30,8 @@ git clone <your-repo-url> ~/src/brzrk-omarchy
 cd ~/src/brzrk-omarchy
 ./install.sh
 ```
+
+If an install is interrupted, run `./uninstall.sh` to clear its saved state before retrying.
 
 ## Update
 

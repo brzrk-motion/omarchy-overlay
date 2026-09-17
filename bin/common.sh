@@ -2,6 +2,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PATH="$HOME/.local/bin:$PATH"
 STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/brzrk-omarchy"
 ORIGINAL_DIR="$STATE_DIR/original"
 MANIFEST_DIR="$STATE_DIR/manifest"
@@ -80,4 +81,58 @@ assert_not_login_fish() {
   if [[ "$login_shell" == *"/fish" ]]; then
     warn "Login shell is already Fish ($login_shell). BRZRK will not change it."
   fi
+}
+
+restore_managed_originals() {
+  restore_original "$HOME/.config/hypr/hyprland.lua" "hyprland.lua"
+  restore_original "$HOME/.config/ghostty/config.ghostty" "ghostty-config.ghostty"
+  restore_original "$HOME/.config/ghostty/config" "ghostty-config"
+  restore_original "$HOME/.config/starship.toml" "starship.toml"
+  restore_original "$HOME/.codex/config.toml" "codex-config.toml"
+  restore_original "$HOME/.cursor/mcp.json" "cursor-mcp.json"
+  restore_original "$HOME/.agents/skills/ponytail" "skill-ponytail"
+  restore_original "$HOME/.agents/skills/impeccable" "skill-impeccable"
+  restore_original "$HOME/.executor" "executor-data"
+  restore_original "$HOME/.config/systemd/user/executor.service" "executor-service"
+}
+
+stop_added_executor() {
+  [[ -f "$MANIFEST_DIR/npm-added.txt" ]] || return 0
+  command -v executor >/dev/null 2>&1 &&
+    executor daemon stop >/dev/null 2>&1 || true
+  command -v systemctl >/dev/null 2>&1 &&
+    systemctl --user disable --now executor.service >/dev/null 2>&1 || true
+  command -v systemctl >/dev/null 2>&1 &&
+    systemctl --user daemon-reload >/dev/null 2>&1 || true
+}
+
+rollback_first_install() {
+  local status=$?
+  set +e
+  trap - ERR
+  warn "Install failed; restoring the pre-install state."
+
+  "$REPO_ROOT/bin/patch-loaders.py" remove >/dev/null 2>&1
+  if [[ -d "$GENERATED_DIR/skills" ]]; then
+    stow --dir="$GENERATED_DIR" --target="$HOME" --no-folding --delete skills >/dev/null 2>&1
+  fi
+  unstow_package starship >/dev/null 2>&1
+  unstow_package brzrk >/dev/null 2>&1
+  stop_added_executor
+  restore_managed_originals
+  exit "$status"
+}
+
+recover_update() {
+  local status=$?
+  set +e
+  trap - ERR
+  warn "Update failed; restoring the managed overlay links and loaders."
+  stow_package brzrk >/dev/null 2>&1
+  stow_package starship >/dev/null 2>&1
+  if [[ -d "$GENERATED_DIR/skills" ]]; then
+    stow --dir="$GENERATED_DIR" --target="$HOME" --no-folding --restow skills >/dev/null 2>&1
+  fi
+  "$REPO_ROOT/bin/patch-loaders.py" apply >/dev/null 2>&1
+  exit "$status"
 }

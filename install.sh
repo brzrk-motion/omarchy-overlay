@@ -2,10 +2,12 @@
 set -euo pipefail
 source "$(dirname "$0")/bin/common.sh"
 
-ensure_state
+[[ ! -d "$STATE_DIR" ]] || die "Already installed or an interrupted install exists; run ./uninstall.sh first."
 assert_not_login_fish
 
 ensure_packages
+ensure_state
+trap rollback_first_install ERR
 
 backup_once "$HOME/.config/hypr/hyprland.lua" "hyprland.lua"
 backup_once "$HOME/.config/ghostty/config.ghostty" "ghostty-config.ghostty"
@@ -38,4 +40,5 @@ stow --dir="$GENERATED_DIR" --target="$HOME" --no-folding --restow skills
 
 assert_not_login_fish
 "$REPO_ROOT/bin/validate.sh"
+trap - ERR
 log "Install complete"
