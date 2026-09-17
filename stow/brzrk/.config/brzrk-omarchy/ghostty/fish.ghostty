@@ -1,0 +1,4 @@
+# BRZRK Ghostty overlay.
+# Fish is interactive here only; the account/login shell remains unchanged.
+command = direct:fish
+shell-integration = fish
