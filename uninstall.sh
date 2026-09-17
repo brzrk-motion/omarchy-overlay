@@ -9,14 +9,13 @@ purge=0
 warn "Uninstall restores first-install snapshots and discards changes to managed files."
 
 "$REPO_ROOT/bin/patch-loaders.py" remove
-if [[ -d "$GENERATED_DIR/skills" ]]; then
-  stow --dir="$GENERATED_DIR" --target="$HOME" --no-folding --delete skills
-fi
+"$REPO_ROOT/bin/sync-skills.sh" remove
 unstow_package starship
 unstow_package brzrk
 
 stop_added_executor
 restore_managed_originals
+restore_autostart_service_states
 
 if (( purge )); then
   if [[ -f "$MANIFEST_DIR/pacman-added.txt" ]]; then

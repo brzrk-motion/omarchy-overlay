@@ -1,6 +1,8 @@
 -- BRZRK creative workstation overlay for Omarchy Quattro.
 -- User-owned only. Never edit /usr/share/omarchy.
 
+dofile((os.getenv("HOME") or "") .. "/.config/brzrk-omarchy/hypr/workspaces.lua")
+
 local creative_classes = {
   "^[Bb]lender$",
   "^blender$",

@@ -10,7 +10,7 @@ fi
 
 ensure_packages
 
-# Fetch/build first so a network failure leaves the active overlay untouched.
+# Fetch into an isolated stage first so a network failure leaves active skills untouched.
 "$REPO_ROOT/bin/sync-skills.sh"
 trap recover_update ERR
 
@@ -19,9 +19,9 @@ stow_package brzrk
 stow_package starship
 "$REPO_ROOT/bin/patch-loaders.py" apply
 
-stow --dir="$GENERATED_DIR" --target="$HOME" --no-folding --restow skills
-
+record_autostart_service_states
 "$REPO_ROOT/bin/configure-executor.sh"
+ensure_autostart_services
 "$REPO_ROOT/bin/configure-agents.py"
 "$REPO_ROOT/bin/validate.sh"
 trap - ERR
