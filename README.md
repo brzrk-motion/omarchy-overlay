@@ -23,7 +23,9 @@ first install and restored on uninstall.
 - Context7, Chrome DevTools MCP and shadcn MCP configured behind Executor.
 - The maintained [BRZRK skills.sh pack](https://skills.sh/p/ySjQVU7kNo5txTvo) is installed
   into `~/.agents/skills` for Codex and Cursor. Updates reconcile the pack's current contents,
-  including newly added skills, while uninstall restores pre-existing same-named skills.
+  including newly added skills, while uninstall restores pre-existing same-named skills. The
+  installer resolves live pack membership and snapshots from skills.sh, then installs the assembled
+  pack with the skills CLI.
 - GNU Stow for static configuration.
 - Required packages bootstrapped by the installer: Stow, Starship, Fish/
   `omarchy-fish`, Git, Python, Ghostty, Chromium, Node.js, npm, Docker and Tailscale. Executor is

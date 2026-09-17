@@ -34,23 +34,21 @@ ensure_state
 stage="$(mktemp -d "$STATE_DIR/.skills-stage.XXXXXX")"
 trap 'rm -rf -- "$stage"' EXIT
 stage_home="$stage/home"
+pack_dir="$stage/pack"
+pack_skills_file="$stage/pack-skills.txt"
 mkdir -p "$stage_home"
 
-log "Fetching managed skills pack with skills.sh"
-fetched=0
-for attempt in 1 2 3; do
-  rm -rf -- "$stage_home"
-  mkdir -p "$stage_home"
-  if HOME="$stage_home" \
-    DISABLE_TELEMETRY=1 \
-    npx --yes "skills@$SKILLS_CLI_VERSION" add "$SKILLS_PACK_URL" \
-      --skill '*' --agent codex --agent cursor --global --copy --yes; then
-    fetched=1
-    break
-  fi
-  warn "skills.sh pack fetch failed (attempt $attempt of 3)"
-done
-((fetched)) || die "Unable to fetch managed skills pack after 3 attempts"
+log "Resolving managed skills pack from skills.sh"
+python3 "$REPO_ROOT/bin/resolve-skills-pack.py" \
+  "$SKILLS_PACK_URL" "$pack_dir" > "$pack_skills_file"
+mapfile -t pack_skills < "$pack_skills_file"
+((${#pack_skills[@]})) || die "The managed skills pack returned no skills"
+
+log "Installing ${#pack_skills[@]} managed skills with the skills CLI"
+HOME="$stage_home" \
+  DISABLE_TELEMETRY=1 \
+  npx --yes "skills@$SKILLS_CLI_VERSION" add "$pack_dir" \
+    --skill '*' --agent codex --agent cursor --global --copy --yes
 
 stage_skills="$stage_home/.agents/skills"
 [[ -d "$stage_skills" ]] || die "skills.sh did not produce a managed skills directory"

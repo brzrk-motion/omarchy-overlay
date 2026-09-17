@@ -31,7 +31,7 @@ backup_once() {
 }
 
 restore_original() {
-  local dst="$1" name="$2" marker src
+  local dst="$1" name="$2" marker src tmp
   marker="$MANIFEST_DIR/${name}.state"
   src="$ORIGINAL_DIR/$name"
   [[ -f "$marker" ]] || return 0
@@ -39,9 +39,15 @@ restore_original() {
     absent) rm -rf -- "$dst" ;;
     present)
       [[ -e "$src" || -L "$src" ]] || die "Missing snapshot for $dst"
-      rm -rf -- "$dst"
       mkdir -p "$(dirname "$dst")"
-      cp -a -- "$src" "$dst"
+      if [[ -f "$src" && ! -L "$src" ]]; then
+        tmp="$(mktemp "$(dirname "$dst")/.${name}.restore.XXXXXX")"
+        cp -a -- "$src" "$tmp"
+        mv -f -- "$tmp" "$dst"
+      else
+        rm -rf -- "$dst"
+        cp -a -- "$src" "$dst"
+      fi
       ;;
     *) die "Invalid snapshot marker: $marker" ;;
   esac
